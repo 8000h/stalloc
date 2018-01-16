@@ -49,7 +49,7 @@ void init_heap(heap* h, uint32_t size)
 
 void* stalloc(heap* h, uint32_t size)
 {
-	m_block* block = first_fit(h, size);
+	m_block* block = best_fit(h, size);
 	return alloc_space_in_block(block, size);
 }
 
@@ -143,7 +143,27 @@ static m_block* first_fit(heap* h, uint32_t size)
 
 		block = block->next;
 	}
+
 	return 0;
+}
+
+static m_block* best_fit(heap* h, uint32_t size)
+{
+	m_block temp;
+	init_block(&temp, -1, -1);
+
+	m_block* best = &temp;
+	m_block* block = h->first_block;
+	while (block != NULL) {
+		if (block->chunk_size >= size
+		    && block->chunk_size < best->chunk_size
+		    && get_free_chunks(block) > 0)
+			best = block;			
+
+		block = block->next;
+	}
+
+	return best;
 }
 
 void create_block(heap* h, uint8_t chunk_size, uint8_t chunk_amt)
@@ -154,6 +174,9 @@ void create_block(heap* h, uint8_t chunk_size, uint8_t chunk_amt)
 		block = block->next;
 
 	m_block* new_block = calc_next_block_addr(block);
+	if ((uint64_t) new_block + sizeof(m_block) > (uint64_t) h + h->size)
+		return;
+
 	init_block(new_block, chunk_size, chunk_amt);
 	block->next = new_block;
 }
